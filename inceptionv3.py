@@ -61,12 +61,12 @@ print(str(len(x_train)) + ' Training samples, ' + str(len(x_test)) + ' Testing s
 ### Parameters
 img_width, img_height = 299, 299 
 batch_size = 32
-epochs1 = 15
+epochs1 = 30
 epochs2 = 10
 # train_size = len(x_train)
 # test_size = len(x_test)
 train_size = 1200
-test_size = 1200
+test_size = 340
 BETA = 500
 
 ### Cropping functions
@@ -146,34 +146,72 @@ x = Dense(2048, activation='relu')(x)
 output_positions = Dense(3, name='x')(x)
 output_quaternions = Dense(4, name='q')(x)
 
+
+
 def x_loss(y_true, y_pred):
     return tf.nn.l2_loss(y_true - y_pred)
 
 def q_loss(y_true, y_pred):
     return tf.nn.l2_loss(y_true - y_pred / tf.norm(y_pred, ord=2))
 
+def mean_x(y_true, y_pred):
+    return K.mean(K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1)), axis=0)
+
+def mean_q(y_true, y_pred):
+    q1 = y_true
+    q2 = K.l2_normalize(y_pred, axis=-1)
+    d = tf.reduce_sum(tf.multiply(q1, q2), axis=-1)
+    theta = 2 * tf.acos(d) * 180.0 / np.pi
+    return K.mean(theta, axis=0)
+
 # Combined model w/ classifier
 model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
 
-model.summary()
-model.compile(optimizer=SGD(lr=1e-5, decay=0.99, momentum=0.9), loss={'x': x_loss, 'q': q_loss}, loss_weights=[1, 500])
 
-history1 = fitData(batch_size, 
-    epochs1, 
+for i, layer in enumerate(base_model.layers):
+    layer.trainable = False
+    
+model.summary()
+model.compile(
+    optimizer=RMSprop(),
+    loss={'x': x_loss, 'q': q_loss}, 
+    loss_weights={'x': 1, 'q':500},
+    metrics={'x': mean_x, 'q': mean_q})
+
+model.load_weights('kings_bottom.h5')
+
+# history1 = fitData(batch_size, 
+#     epochs1, 
+#     model, 
+#     generator(x_train, [y_train_x, y_train_q], batch_size, preprocessing_function=randomCrop), 
+#     generator(x_test, [y_test_x, y_test_q], batch_size, preprocessing_function=centerCrop), 
+#     train_size, 
+#     test_size)
+
+# model.save_weights('kings_top.h5')
+
+
+for i, layer in enumerate(base_model.layers[:172]):
+    layer.trainable = False
+for i, layer in enumerate(base_model.layers[172:]):
+    layer.trainable = True
+
+sgd = SGD(lr=1e-5, decay=0.99)
+model.compile(
+    optimizer=sgd,
+    loss={'x': x_loss, 'q': q_loss}, 
+    loss_weights={'x': 1, 'q':500},
+    metrics={'x': mean_x, 'q': mean_q})
+
+history2 = fitData(batch_size, 
+    epochs2, 
     model, 
     generator(x_train, [y_train_x, y_train_q], batch_size, preprocessing_function=randomCrop), 
     generator(x_test, [y_test_x, y_test_q], batch_size, preprocessing_function=centerCrop), 
     train_size, 
     test_size)
 
-# history1 = fitData(batch_size, 
-#     epochs1, 
-#     model, 
-#     directory_generator(DATA_DIR + 'dataset_train.txt', batch_size, preprocessing_function=randomCrop), 
-#     directory_generator(DATA_DIR + 'dataset_test.txt', batch_size, preprocessing_function=randomCrop), 
-#     train_size, 
-#     test_size)
 
-model.save_weights('kings_top.h5')
+model.save_weights('kings_bottom.h5')
 
 
