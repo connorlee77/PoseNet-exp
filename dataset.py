@@ -40,4 +40,4 @@ train = to_CSV(DATA_DIR + 'dataset_train.txt')
 test = to_CSV(DATA_DIR + 'dataset_test.txt')
 
 createSet(train, DATA_DIR + 'kings_train', 560, 315)
-createSet(train, DATA_DIR + 'kings_test', 560, 315)
+createSet(test, DATA_DIR + 'kings_test', 560, 315)
