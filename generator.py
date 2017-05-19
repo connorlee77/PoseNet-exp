@@ -1,5 +1,33 @@
-def generator(features, labels, batch_size, preprocessing_function=None):
+import os
+import h5py
+import numpy as np
+import pandas as pd
+np.random.seed(148)
+from PIL import Image
 
+def randomCrop(x, target_dim=(299, 299), currImgDim=(315, 560)):
+
+    img_height, img_width = target_dim
+    currHeight, currWidth = currImgDim
+
+    x = np.squeeze(x)
+    rY = np.random.randint(0, currHeight - img_height)
+    rX = np.random.randint(0, currWidth - img_width)
+    return x[rY:rY + img_height, rX:rX + img_width]
+
+def centerCrop(x, target_dim=(299, 299), currImgDim=(315, 560)):
+
+    img_height, img_width = target_dim
+    currHeight, currWidth = currImgDim
+
+    x = np.squeeze(x)
+    sX = (currWidth // 2) - (img_width//2) 
+    sY = (currHeight // 2) - (img_height//2)
+    return x[sY:sY + img_height, sX:sX + img_width] 
+
+def generator(features, labels, batch_size, preprocessing_function=None, target_dim=(299, 299), currImgDim=(315, 560)):
+    img_height, img_width = target_dim
+    currHeight, currWidth = currImgDim
     q = labels[1]
     x = labels[0]
 
@@ -10,14 +38,16 @@ def generator(features, labels, batch_size, preprocessing_function=None):
         for i in range(batch_size):
             index = np.random.choice(len(features),1)
 
-            batch_features[i] = preprocessing_function(features[index])
+            batch_features[i] = preprocessing_function(features[index], target_dim=target_dim, currImgDim=currImgDim)
 
             batch_x[i] = x[index]
             batch_q[i] = q[index]
 
         yield batch_features, {'x': batch_x, 'q': batch_q}
 
-def directory_generator(train_dist_filepath, batch_size, preprocessing_function=None):
+
+### Does not work. Use as template
+def directory_generator(train_dist_filepath, batch_size, preprocessing_function=None, img_height=299, img_width=299):
 
     data = pd.read_csv(train_dist_filepath, delim_whitespace=True, header=None, names=['path', 'X', 'Y', 'Z', 'W', 'P', 'Q', 'R'], skiprows=3)
 
