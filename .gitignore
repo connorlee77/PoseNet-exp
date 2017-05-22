@@ -1,3 +1,5 @@
 KingsCollege/
 logs/
+*.npy
+*.pyc
 *.h5

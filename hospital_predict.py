@@ -40,45 +40,31 @@ def preprocess(x):
     return x
 
 ### File paths
-DATA_DIR = 'KingsCollege/'
-TRAIN = 'kings_train.npy'
-TEST = 'kings_test.npy'
-TRAIN_Y = 'kings_train_y.npy'
-TEST_Y = 'kings_test_y.npy'
+DATA_DIR = 'OldHospital/'
+TEST = 'hospital_test.npy'
+TEST_Y = 'hospital_test_y.npy'
 
 ### Data gathering & preprocessing
-x_train = np.float32(np.load(DATA_DIR + TRAIN))
 x_test = np.float32(np.load(DATA_DIR + TEST))
-
-y_train = np.float32(np.load(DATA_DIR + TRAIN_Y))
 y_test = np.float32(np.load(DATA_DIR + TEST_Y))
 
-y_train_x = y_train[:,0:3]
-y_train_q = y_train[:,3:]
 y_test_x = y_test[:,0:3]
 y_test_q = y_test[:,3:]
 
-x_train = preprocess(x_train)
 x_test = preprocess(x_test)
 
-print(str(len(x_train)) + ' Training samples, ' + str(len(x_test)) + ' Testing samples')
+print(str(len(x_test)) + ' Testing samples')
 
 ### Parameters
 img_width, img_height = 299, 299 
 batch_size = 32
-epochs1 = 50
-epochs2 = 50
-train_size = len(x_train)
 test_size = len(x_test)
-
 
 ### Cropping functions
 currHeight = 315
 currWidth = 560
 
-
 ### Model
-
 base_model = InceptionV3(weights='imagenet', input_shape=(img_width, img_height, 3), pooling=None, include_top=False)
 
 # Top classifier
@@ -89,10 +75,16 @@ x = Dense(2048, activation='relu')(x)
 output_positions = Dense(3, name='x')(x)
 output_quaternions = Dense(4, name='q')(x)
 
+# Combined model w/ classifier
+model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
+model.summary()
+model.load_weights('hospital_bottom.h5')
+
 def median(v):
   v = tf.reshape(v, [-1])
   m = batch_size//2
   return tf.nn.top_k(v, m).values[m-1]
+
 
 def x_loss(y_true, y_pred):
     return tf.nn.l2_loss(y_true - y_pred)
@@ -110,51 +102,21 @@ def median_q(y_true, y_pred):
     theta = 2 * tf.acos(d) * 180.0 / np.pi
     return median(theta)
 
-# Combined model w/ classifier
-model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
-
-
-for i, layer in enumerate(base_model.layers):
-    layer.trainable = False
-    
-model.summary()
 model.compile(
     optimizer=RMSprop(),
     loss={'x': x_loss, 'q': q_loss}, 
     loss_weights={'x': 1, 'q':350},
     metrics={'x': median_x, 'q': median_q})
 
-history1 = fitData(batch_size, 
-    epochs1, 
-    model, 
-    generator(x_train, [y_train_x, y_train_q], batch_size, preprocessing_function=randomCrop, target_dim=(img_height, img_width), currImgDim=(currHeight, currWidth)), 
-    generator(x_test, [y_test_x, y_test_q], batch_size, preprocessing_function=centerCrop, target_dim=(img_height, img_width), currImgDim=(currHeight, currWidth)), 
-    train_size, 
-    test_size)
+test_gen = generator(x_test, 
+    [y_test_x, y_test_q], 
+    batch_size, 
+    preprocessing_function=centerCrop, 
+    target_dim=(img_height, img_width), 
+    currImgDim=(currHeight, currWidth))
 
-model.save_weights('kings_top.h5')
+print('testing')
+print(model.evaluate_generator(test_gen, test_size))
 
-
-for i, layer in enumerate(base_model.layers):
-    layer.trainable = True
-
-sgd = SGD(lr=1e-6, decay=0.99)
-adam = Adam(lr=1e-5, clipvalue=1.5)
-model.compile(
-    optimizer=adam,
-    loss={'x': x_loss, 'q': q_loss}, 
-    loss_weights={'x': 1, 'q':350},
-    metrics={'x': median_x, 'q': median_q})
-
-history2 = fitData(batch_size, 
-    epochs2, 
-    model, 
-    generator(x_train, [y_train_x, y_train_q], batch_size, preprocessing_function=randomCrop, target_dim=(img_height, img_width), currImgDim=(currHeight, currWidth)), 
-    generator(x_test, [y_test_x, y_test_q], batch_size, preprocessing_function=centerCrop, target_dim=(img_height, img_width), currImgDim=(currHeight, currWidth)), 
-    train_size, 
-    test_size)
-
-
-model.save_weights('kings_bottom.h5')
 
 

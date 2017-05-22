@@ -40,17 +40,17 @@ def preprocess(x):
     return x
 
 ### File paths
-DATA_DIR = 'KingsCollege/'
-TRAIN = 'kings_train.npy'
-TEST = 'kings_test.npy'
-TRAIN_Y = 'kings_train_y.npy'
-TEST_Y = 'kings_test_y.npy'
+DATA_DIR = 'OldHospital/'
+TRAIN = 'hospital_train.npy'
+TEST = 'hospital_test.npy'
+TRAIN_Y = 'hospital_train_y.npy'
+TEST_Y = 'hospital_test_y.npy'
 
 ### Data gathering & preprocessing
-x_train = np.float32(np.load(DATA_DIR + TRAIN))
+x_train = np.float32(np.load(DATA_DIR + TRAIN))[::4,:]
 x_test = np.float32(np.load(DATA_DIR + TEST))
 
-y_train = np.float32(np.load(DATA_DIR + TRAIN_Y))
+y_train = np.float32(np.load(DATA_DIR + TRAIN_Y))[::4,:]
 y_test = np.float32(np.load(DATA_DIR + TEST_Y))
 
 y_train_x = y_train[:,0:3]
@@ -78,7 +78,6 @@ currWidth = 560
 
 
 ### Model
-
 base_model = InceptionV3(weights='imagenet', input_shape=(img_width, img_height, 3), pooling=None, include_top=False)
 
 # Top classifier
@@ -116,13 +115,15 @@ model = Model(inputs=base_model.input, outputs=[output_positions, output_quatern
 
 for i, layer in enumerate(base_model.layers):
     layer.trainable = False
-    
+
 model.summary()
 model.compile(
     optimizer=RMSprop(),
     loss={'x': x_loss, 'q': q_loss}, 
     loss_weights={'x': 1, 'q':350},
     metrics={'x': median_x, 'q': median_q})
+
+model.load_weights('kings_bottom.h5')
 
 history1 = fitData(batch_size, 
     epochs1, 
@@ -132,7 +133,7 @@ history1 = fitData(batch_size,
     train_size, 
     test_size)
 
-model.save_weights('kings_top.h5')
+model.save_weights('hospital_top4.h5')
 
 
 for i, layer in enumerate(base_model.layers):
@@ -155,6 +156,6 @@ history2 = fitData(batch_size,
     test_size)
 
 
-model.save_weights('kings_bottom.h5')
+model.save_weights('hospital_bottom4.h5')
 
 
