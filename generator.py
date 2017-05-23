@@ -45,6 +45,28 @@ def generator(features, labels, batch_size, preprocessing_function=None, target_
 
         yield batch_features, {'x': batch_x, 'q': batch_q}
 
+def generatorSLAM(features1, features2, labels, batch_size, preprocessing_function=None, target_dim=(299, 299), currImgDim=(315, 560)):
+    img_height, img_width = target_dim
+    currHeight, currWidth = currImgDim
+    q = labels[1]
+    x = labels[0]
+
+    batch_features1 = np.zeros((batch_size, img_height, img_width, 3))
+    batch_features2 = np.zeros((batch_size, img_height, img_width, 3))
+    batch_x = np.zeros((batch_size, 3))
+    batch_q = np.zeros((batch_size, 4))
+    while True:
+        for i in range(batch_size):
+            index = np.random.choice(len(features),1)
+
+            batch_features1[i] = features1[index]
+            batch_features2[i] = features2[index]
+
+            batch_x[i] = x[index]
+            batch_q[i] = q[index]
+
+        yield batch_features, {'x': batch_x, 'q': batch_q}
+
 
 ### Does not work. Use as template
 def directory_generator(train_dist_filepath, batch_size, preprocessing_function=None, img_height=299, img_width=299):
