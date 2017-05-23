@@ -26,7 +26,7 @@ def createSet(data, filename, width, height):
 
 		factor = height / float(min(h, w)) 
 		pic = cv2.resize(pic, (int(w * factor), int(h * factor)))
-		
+
 		x[index] = pic
 
 	x = np.uint8(x)
@@ -35,9 +35,20 @@ def createSet(data, filename, width, height):
 	assert len(x) == len(y)
 	np.save(filename + '_y', y)
 
-DATA_DIR = 'KingsCollege/'
+# DATA_DIR = 'KingsCollege/'
+# TRAIN_DST = 'kings_train'
+# TEST_DST = 'kings_test'
+
+# DATA_DIR = 'OldHospital/'
+# TRAIN_DST = 'hospital_train'
+# TEST_DST = 'hospital_test'
+
+DATA_DIR = 'GreatCourt/'
+TRAIN_DST = 'court_train'
+TEST_DST = 'court_test'
+
 train = to_CSV(DATA_DIR + 'dataset_train.txt')
 test = to_CSV(DATA_DIR + 'dataset_test.txt')
 
-createSet(train, DATA_DIR + 'kings_train', 560, 315)
-createSet(test, DATA_DIR + 'kings_test', 560, 315)
+createSet(train, DATA_DIR + TRAIN_DST, 560, 315)
+createSet(test, DATA_DIR + TEST_DST, 560, 315)
