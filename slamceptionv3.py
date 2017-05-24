@@ -10,7 +10,7 @@ import keras
 from keras.models import Sequential, Model
 from keras.layers.convolutional import Conv2D, ZeroPadding2D
 from keras.layers.merge import concatenate
-from keras.layers import Activation, Dropout, Flatten, Dense, Reshape, Lambda, GlobalAveragePooling2D
+from keras.layers import Activation, Dropout, Flatten, Dense, Reshape, Lambda, GlobalAveragePooling2D, Input
 from keras.preprocessing.image import ImageDataGenerator
 
 from keras.applications.inception_v3 import InceptionV3, preprocess_input
@@ -104,29 +104,28 @@ test_size = len(x1_test)
 
 
 ### Model
-base_model1 = InceptionV3(weights='imagenet', input_shape=(img_width, img_height, 3), pooling=None, include_top=False)
-base_model2 = InceptionV3(weights='imagenet', input_shape=(img_width, img_height, 3), pooling=None, include_top=False)
+input_1 = Input(shape=(img_width, img_height, 3))
+input_2 = Input(shape=(img_width, img_height, 3))
+base_model = InceptionV3(weights='imagenet', input_shape=(img_width, img_height, 3), pooling=None, include_top=False)
 
-x1 = base_model1.output
-x1 = GlobalAveragePooling2D()(x1)
-x1 = Dense(2048, activation='relu')(x1)
-x1 = Dense(4096, activation='relu')(x1)
+branch_1 = base_model(input_1)
+branch_2 = base_model(input_2)
 
-x2 = base_model2.output
-x2 = GlobalAveragePooling2D()(x2)
-x2 = Dense(2048, activation='relu')(x2)
-x2 = Dense(4096, activation='relu')(x2)
+x1 = GlobalAveragePooling2D()(branch_1)
+x1 = Dense(1024, activation='relu')(x1)
+x1 = Dropout(rate=0.5)(x1)
+
+x2 = GlobalAveragePooling2D()(branch_2)
+x2 = Dense(1024, activation='relu')(x2)
+x2 = Dropout(rate=0.5)(x2)
 
 x = concatenate([x1, x2])
 x = Dense(1024, activation='relu')(x)
+x = Dropout(rate=0.5)(x)
 
 output_positions = Dense(3, name='dx')(x)
 output_quaternions = Dense(4, name='dq')(x)
 
-for layer in base_model2.layers:
-    layer.name = layer.name + '_x2'
-for layer in base_model1.layers:
-    layer.name = layer.name + '_x1'
 
 
 def median(v):
@@ -150,19 +149,17 @@ def median_dq(y_true, y_pred):
     theta = 2 * tf.acos(d) * 180.0 / np.pi
     return median(theta)
 
-model = Model(inputs=[base_model1.input, base_model2.input], outputs=[output_positions, output_quaternions])
+model = Model(inputs=[input_1, input_2], outputs=[output_positions, output_quaternions])
 
+for i, layer in enumerate(base_model.layers):
+    layer.trainable = False
 
-for i, layer in enumerate(base_model1.layers):
-    layer.trainable = False
-for i, layer in enumerate(base_model2.layers):
-    layer.trainable = False
 
 model.summary()
 model.compile(
     optimizer=RMSprop(),
     loss={'dx': dx_loss, 'dq': dq_loss}, 
-    loss_weights={'dx': 1, 'dq':1},
+    loss_weights={'dx': 1, 'dq':10},
     metrics={'dx': median_dx, 'dq': median_dq})
 
 history1 = fitData(batch_size, 
@@ -180,12 +177,12 @@ for i, layer in enumerate(base_model.layers):
     layer.trainable = True
 
 sgd = SGD(lr=1e-6, decay=0.99)
-adam = Adam(lr=1e-5, clipvalue=1.5)
+adam = Adam(lr=1e-5, clipvalue=1.5, decay=0.98)
 model.compile(
     optimizer=adam,
-    loss={'dx': x_loss, 'dq': q_loss}, 
-    loss_weights={'dx': 1, 'dq':350},
-    metrics={'dx': median_x, 'dq': median_q})
+    loss={'dx': dx_loss, 'dq': dq_loss}, 
+    loss_weights={'dx': 1, 'dq':10},
+    metrics={'dx': median_dx, 'dq': median_dq})
 
 history2 = fitData(batch_size, 
     epochs2, 
