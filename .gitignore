@@ -1,6 +1,7 @@
 KingsCollege/
 GreatCourt/
 OldHospital/
+__pycache__/
 logs/
 *.npy
 *.pyc

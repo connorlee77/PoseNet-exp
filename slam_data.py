@@ -6,7 +6,7 @@ import pandas as pd
 
 import cv2 
 import progressbar
-
+from pyquaternion import Quaternion
 
 def to_CSV(filepath):
 	return pd.read_csv(filepath, delim_whitespace=True, header=None, names=['path', 'X', 'Y', 'Z', 'W', 'P', 'Q', 'R'], skiprows=3)
@@ -31,30 +31,6 @@ def centerCrop(x, target_dim=(299, 299), currImgDim=(315, 560)):
     sY = (currHeight // 2) - (img_height//2)
     return x[sY:sY + img_height, sX:sX + img_width] 
 
-def quat2transform(x, y, z, w):
-
-	xx2 = 2 * x * x
-	yy2 = 2 * y * y
-	zz2 = 2 * z * z
-	xy2 = 2 * x * y
-	wz2 = 2 * w * z
-	zx2 = 2 * z * x
-	wy2 = 2 * w * y
-	yz2 = 2 * y * z
-	wx2 = 2 * w * x
-
-	rmat = np.empty((3, 3), float)
-	rmat[0,0] = 1. - yy2 - zz2
-	rmat[0,1] = xy2 - wz2
-	rmat[0,2] = zx2 + wy2
-	rmat[1,0] = xy2 + wz2
-	rmat[1,1] = 1. - xx2 - zz2
-	rmat[1,2] = yz2 - wx2
-	rmat[2,0] = zx2 - wy2
-	rmat[2,1] = yz2 + wx2
-	rmat[2,2] = 1. - xx2 - yy2
-
-	return rmat
 
 def odom_data(train, test, width, height, filename):
 	data = merge(train, test)
@@ -62,7 +38,7 @@ def odom_data(train, test, width, height, filename):
 	x = np.empty((len(data), 299, 299, 3), dtype=np.uint8)
 	
 	dp = np.empty((len(data) - 1, 3))
-	dt = np.empty((len(data) - 1, 3, 3))
+	dt = np.empty((len(data) - 1, 4))
 
 	bar = progressbar.ProgressBar()
 	for i in bar(range(1, len(data))):
@@ -92,13 +68,14 @@ def odom_data(train, test, width, height, filename):
 		px, py, pz, pa, pb, pc, pd  = prev_row.as_matrix(['X', 'Y', 'Z', 'W', 'P', 'Q', 'R'])
 		cx, cy, cz, ca, cb, cc, cd  = curr_row.as_matrix(['X', 'Y', 'Z', 'W', 'P', 'Q', 'R'])
 
-		p_rot = quat2transform(pa, pb, pc, pd)
-		c_rot = quat2transform(ca, cb, cc, cd)
-
-		transformation_matrix = np.linalg.inv(p_rot).dot(c_rot)
+		pq = Quaternion(pa, pb, pc, pd)
+		cq = Quaternion(ca, cb, cc, cd)
+		
+		rq = cq / pq 
+		assert len(rq.elements) == 4 
 
 		dp[i - 1] = np.array([cx - px, cy - py, cz - pz])
-		dt[i - 1] = transformation_matrix
+		dt[i - 1] = rq.elements
 
 	np.save(filename + '_slam_dt', dt)
 	np.save(filename + '_slam_dp', dp)
