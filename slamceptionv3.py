@@ -97,8 +97,8 @@ print(str(len(y_train_q)) + ' y2 Training labels, ' + str(len(y_test_q)) + ' y2 
 ### Parameters
 img_width, img_height = 299, 299 
 batch_size = 32
-epochs1 = 50
-epochs2 = 50
+epochs1 = 60
+epochs2 = 10
 train_size = len(x1_train)
 test_size = len(x1_test)
 
@@ -134,10 +134,10 @@ def median(v):
   return tf.nn.top_k(v, m).values[m-1]
 
 def dx_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred)
+    return tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred)))
 
 def dq_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred / tf.norm(y_pred, ord=2))
+    return tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred / tf.norm(y_pred, ord=2))))
 
 def median_dx(y_true, y_pred):
     return median(K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1)))

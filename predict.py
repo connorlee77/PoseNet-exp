@@ -59,7 +59,7 @@ print(str(len(x_test)) + ' Testing samples')
 img_width, img_height = 299, 299 
 batch_size = 32
 train_size = 1200
-test_size = 340
+test_size = len(x_test)
 
 ### Cropping functions
 currHeight = 315
@@ -79,7 +79,7 @@ output_quaternions = Dense(4, name='q')(x)
 # Combined model w/ classifier
 model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
 model.summary()
-model.load_weights('kings_bottom.h5')
+model.load_weights('weights/kings_bottom.h5')
 
 def median(v):
   v = tf.reshape(v, [-1])
