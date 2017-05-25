@@ -79,27 +79,17 @@ test_i = np.array(test_i, dtype=np.uint16)
 
 mean_x = np.mean(x1_data[train_i], axis=0)
 
-x1_train = preprocess(x1_data[train_i], mean_x)
-x2_train = preprocess(x2_data[train_i], mean_x)
+
 x1_test = preprocess(x1_data[test_i], mean_x)
 x2_test = preprocess(x2_data[test_i], mean_x)
 
-y_train_x = y_data_dp[train_i]
-y_train_q = y_data_dt[train_i]
 y_test_x = y_data_dp[test_i]
 y_test_q = y_data_dt[test_i]
 
-print(str(len(x1_train)) + ' x1 Training samples, ' + str(len(x1_test)) + ' x1 Testing samples')
-print(str(len(x2_train)) + ' x2 Training samples, ' + str(len(x2_test)) + ' x2 Testing samples')
-print(str(len(y_train_x)) + ' y1 Training labels, ' + str(len(y_test_x)) + ' y1 Testing labels')
-print(str(len(y_train_q)) + ' y2 Training labels, ' + str(len(y_test_q)) + ' y2 Testing labels')
 
 ### Parameters
 img_width, img_height = 299, 299 
 batch_size = 32
-epochs1 = 60
-epochs2 = 10
-train_size = len(x1_train)
 test_size = len(x1_test)
 
 
@@ -127,18 +117,6 @@ output_positions = Dense(3, name='dx')(x)
 output_quaternions = Dense(4, name='dq')(x)
 
 
-
-def median(v):
-  v = tf.reshape(v, [-1])
-  m = batch_size//2
-  return tf.nn.top_k(v, m).values[m-1]
-
-def dx_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred)
-
-def dq_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred / tf.norm(y_pred, ord=2))
-
 def median_dx(y_true, y_pred):
     return K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1))
 
@@ -150,46 +128,30 @@ def median_dq(y_true, y_pred):
     return theta
 
 model = Model(inputs=[input_1, input_2], outputs=[output_positions, output_quaternions])
+model.load_weights('kings_slam_bottom.h5')
 
-for i, layer in enumerate(base_model.layers):
-    layer.trainable = False
+predictions = model.predict([x1_test, x2_test], batch_size=32, verbose=1)
 
-model.summary()
-model.compile(
-    optimizer=RMSprop(),
-    loss={'dx': dx_loss, 'dq': dq_loss}, 
-    loss_weights={'dx': 1, 'dq':2},
-    metrics={'dx': median_dx, 'dq': median_dq})
+yp = predictions[0]
+yq = predictions[1]
 
-history1 = fitData(batch_size, 
-    epochs1, 
-    model, 
-    generatorSLAM(x1_train, x2_train, [y_train_x, y_train_q], batch_size, preprocessing_function=None, target_dim=(img_height, img_width)), 
-    generatorSLAM(x1_test, x2_test, [y_test_x, y_test_q], batch_size, preprocessing_function=None, target_dim=(img_height, img_width)), 
-    train_size, 
-    test_size)
+metrics = np.zeros((len(yp), 2))
 
-model.save_weights('kings_slam_top.h5')
+i = 0
+while i < len(yp):
+    metrics[i, 0] = np.linalg.norm(y_test_x[i] - yp[i])
+    
+    q1 = y_test_q[i] / np.linalg.norm(y_test_q[i])
+    if np.isnan(np.min(q1)):
+        q1 = 0
+    q2 = yq[i] / np.linalg.norm(yq[i])
+    if np.isnan(np.min(q2)):
+        q2 = 0
+    d = abs(np.sum(np.multiply(q1,q2)))
+    theta = 2 * np.arccos(d) * 180/np.pi
 
+    metrics[i, 1] = theta
+    i += 1
 
-for i, layer in enumerate(base_model.layers):
-    layer.trainable = True
-
-adam = Adam(lr=1e-5, clipvalue=1.5, decay=0.98)
-model.compile(
-    optimizer=adam,
-    loss={'dx': dx_loss, 'dq': dq_loss}, 
-    loss_weights={'dx': 1, 'dq':2},
-    metrics={'dx': median_dx, 'dq': median_dq})
-
-history2 = fitData(batch_size, 
-    epochs2, 
-    model, 
-    generatorSLAM(x1_train, x2_train, [y_train_x, y_train_q], batch_size, preprocessing_function=None, target_dim=(img_height, img_width)), 
-    generatorSLAM(x1_test, x2_test, [y_test_x, y_test_q], batch_size, preprocessing_function=None, target_dim=(img_height, img_width)), 
-    train_size, 
-    test_size)
-
-model.save_weights('kings_slam_bottom.h5')
-
-
+median_result = np.median(metrics, axis=0)
+print "Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees'

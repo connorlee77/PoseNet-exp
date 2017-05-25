@@ -53,11 +53,18 @@ y_test_q = y_test[:,3:]
 
 x_test = preprocess(x_test)
 
-print(str(len(x_test)) + ' Testing samples')
+test_set = np.zeros((len(x_test), 299, 299, 3))
+i = 0
+while i < len(x_test):
+    test_set[i] = centerCrop(x_test[i])
+    i += 1
+
+print(str(len(test_set)) + ' Testing samples')
 
 ### Parameters
 img_width, img_height = 299, 299 
 batch_size = 32
+train_size = 1200
 test_size = len(x_test)
 
 ### Cropping functions
@@ -77,46 +84,33 @@ output_quaternions = Dense(4, name='q')(x)
 
 # Combined model w/ classifier
 model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
-model.summary()
-model.load_weights('hospital_bottom.h5')
+model.load_weights('weights/hospital_bottom.h5')
 
-def median(v):
-  v = tf.reshape(v, [-1])
-  m = batch_size//2
-  return tf.nn.top_k(v, m).values[m-1]
+predictions = model.predict(test_set, batch_size=32, verbose=1)
 
+yp = predictions[0]
+yq = predictions[1]
 
-def x_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred)
+metrics = np.zeros((len(yp), 2))
 
-def q_loss(y_true, y_pred):
-    return tf.nn.l2_loss(y_true - y_pred / tf.norm(y_pred, ord=2))
+i = 0
+while i < len(yp):
+    metrics[i, 0] = np.linalg.norm(y_test_x[i] - yp[i])
+    
+    q1 = y_test_q[i] / np.linalg.norm(y_test_q[i])
+    if np.isnan(np.min(q1)):
+        q1 = 0
+    q2 = yq[i] / np.linalg.norm(yq[i])
+    if np.isnan(np.min(q2)):
+        q2 = 0
+    d = abs(np.sum(np.multiply(q1,q2)))
+    theta = 2 * np.arccos(d) * 180/np.pi
 
-def median_x(y_true, y_pred):
-    return median(K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1)))
+    metrics[i, 1] = theta
+    i += 1
 
-def median_q(y_true, y_pred):
-    q1 = y_true
-    q2 = K.l2_normalize(y_pred, axis=-1)
-    d = tf.reduce_sum(tf.multiply(q1, q2), axis=-1)
-    theta = 2 * tf.acos(d) * 180.0 / np.pi
-    return median(theta)
-
-model.compile(
-    optimizer=RMSprop(),
-    loss={'x': x_loss, 'q': q_loss}, 
-    loss_weights={'x': 1, 'q':350},
-    metrics={'x': median_x, 'q': median_q})
-
-test_gen = generator(x_test, 
-    [y_test_x, y_test_q], 
-    batch_size, 
-    preprocessing_function=centerCrop, 
-    target_dim=(img_height, img_width), 
-    currImgDim=(currHeight, currWidth))
-
-print('testing')
-print(model.evaluate_generator(test_gen, test_size))
+median_result = np.median(metrics, axis=0)
+print "Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees'
 
 
 
