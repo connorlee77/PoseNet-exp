@@ -35,10 +35,10 @@ def centerCrop(x, target_dim=(299, 299), currImgDim=(315, 560)):
 def odom_data(train, test, width, height, filename):
 	data = merge(train, test)
 
-	x = np.empty((len(data), 299, 299, 3), dtype=np.uint8)
+	x = np.zeros((len(data), 299, 299, 3), dtype=np.uint8)
 	
-	dp = np.empty((len(data) - 1, 3))
-	dt = np.empty((len(data) - 1, 4))
+	dp = np.zeros((len(data) - 1, 3))
+	dt = np.zeros((len(data) - 1, 4))
 
 	bar = progressbar.ProgressBar()
 	for i in bar(range(1, len(data))):
@@ -47,6 +47,9 @@ def odom_data(train, test, width, height, filename):
 
 		prev_path = prev_row['path']
 		curr_path = curr_row['path']
+
+		if os.path.dirname(prev_path) != os.path.dirname(curr_path):
+			continue
 
 		prev_pic = cv2.imread(DATA_DIR + prev_path)
 		curr_pic = cv2.imread(DATA_DIR + curr_path)

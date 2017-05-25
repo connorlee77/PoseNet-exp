@@ -134,10 +134,10 @@ def median(v):
   return tf.nn.top_k(v, m).values[m-1]
 
 def dx_loss(y_true, y_pred):
-    return tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred)))
+    return tf.nn.l2_loss(y_true - y_pred)
 
 def dq_loss(y_true, y_pred):
-    return tf.sqrt(tf.reduce_sum(tf.square(y_true - y_pred / tf.norm(y_pred, ord=2))))
+    return tf.nn.l2_loss(y_true - y_pred / tf.norm(y_pred, ord=2))
 
 def median_dx(y_true, y_pred):
     return median(K.sqrt(K.sum(K.square(y_true - y_pred), axis=-1)))
@@ -153,7 +153,6 @@ model = Model(inputs=[input_1, input_2], outputs=[output_positions, output_quate
 
 for i, layer in enumerate(base_model.layers):
     layer.trainable = False
-
 
 model.summary()
 model.compile(
