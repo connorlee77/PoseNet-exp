@@ -84,7 +84,7 @@ output_quaternions = Dense(4, name='q')(x)
 
 # Combined model w/ classifier
 model = Model(inputs=base_model.input, outputs=[output_positions, output_quaternions])
-model.load_weights('weights/hospital_bottom.h5')
+model.load_weights('weights/hospital_bottom4.h5')
 
 predictions = model.predict(test_set, batch_size=32, verbose=1)
 
@@ -110,7 +110,10 @@ while i < len(yp):
     i += 1
 
 median_result = np.median(metrics, axis=0)
-print "Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees'
+print("Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees')
 
+np.save('predictions/position_hospital4', yp)
+np.save('predictions/orientation_hospital4', yq)
+np.save('predictions/orientation_hospital_metrics4', metrics)
 
 

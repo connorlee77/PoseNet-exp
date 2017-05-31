@@ -110,7 +110,10 @@ while i < len(yp):
     i += 1
 
 median_result = np.median(metrics, axis=0)
-print "Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees'
+print("Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees')
 
+np.save('position_king', yp)
+np.save('orientation_king', yq)
+np.save('orientation_king_metrics', metrics)
 
 

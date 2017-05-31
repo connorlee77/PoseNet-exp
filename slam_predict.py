@@ -80,11 +80,11 @@ test_i = np.array(test_i, dtype=np.uint16)
 mean_x = np.mean(x1_data[train_i], axis=0)
 
 
-x1_test = preprocess(x1_data[test_i], mean_x)
-x2_test = preprocess(x2_data[test_i], mean_x)
+x1_test = preprocess(x1_data, mean_x)
+x2_test = preprocess(x2_data, mean_x)
 
-y_test_x = y_data_dp[test_i]
-y_test_q = y_data_dt[test_i]
+y_test_x = y_data_dp
+y_test_q = y_data_dt
 
 
 ### Parameters
@@ -128,7 +128,7 @@ def median_dq(y_true, y_pred):
     return theta
 
 model = Model(inputs=[input_1, input_2], outputs=[output_positions, output_quaternions])
-model.load_weights('kings_slam_bottom.h5')
+model.load_weights('weights/kings_slam_bottom.h5')
 
 predictions = model.predict([x1_test, x2_test], batch_size=32, verbose=1)
 
@@ -154,4 +154,9 @@ while i < len(yp):
     i += 1
 
 median_result = np.median(metrics, axis=0)
-print "Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees'
+print("Median error: " + str(median_result[0]) + 'm, ' + str(median_result[1]) + ' degrees')
+
+np.save('predictions/position_king_slam', yp)
+np.save('predictions/orientation_king_slam', yq)
+np.save('predictions/orientation_king_slam_metrics', metrics)
+np.save('predictions/y_labels_test_x', y_test_x)
